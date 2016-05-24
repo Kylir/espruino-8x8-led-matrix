@@ -36,7 +36,7 @@ HeightByHeight.prototype.display = function () {
     var transmission = [0x00]; // Start at address 0 and add progressively.
     for (var i=0; i < this.buffer.length; i++) {
         // We pass 16 bits in two parts. The second one is always 0 in our case. (Isn't it?)
-        transmission.push((this.buffer[i] >> 1));
+        transmission.push(this.buffer[i]);
         transmission.push(0);
     }
     // Now, transmit all the content to the LED matrix
@@ -68,6 +68,10 @@ HeightByHeight.prototype.d = function (val) {
     this.display();
 };
 
+HeightByHeight.prototype.f = function (val) {
+    this.buffer = [val,0,0,0,0,0,0,0];
+    this.display();
+};
 
 /*
 exports.connect = function ( i2c, i2cAddress ) {
