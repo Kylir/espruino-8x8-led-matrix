@@ -1,4 +1,5 @@
 /* jshint undef: true, esnext: true */
+/* global Uint8Array, I2C1, D4, D5 */
 
 function HeightByHeight (i2c, addr) {
 
@@ -6,7 +7,7 @@ function HeightByHeight (i2c, addr) {
 
     this.HT16K33_BLINK_CMD = 0x80;
     this.HT16K33_BLINK_DISPLAYON = 0x01;
-    this.HT16K33_BLINK_OFF = 0;
+    this.HT16K33_CMD_BRIGHTNESS = 0xE0;
 
     // Instantiate the variables
     this.i2c = i2c;
@@ -33,10 +34,11 @@ HeightByHeight.prototype.begin = function () {
  * Transmit the content of the buffer to the LED matrix.
  */
 HeightByHeight.prototype.display = function () {
-    var transmission = [0x00]; // Start at address 0 and add progressively.
+    var transmission = [0]; // Start at address 0 and add progressively.
     for (var i=0; i < this.buffer.length; i++) {
-        // We pass 16 bits in two parts. The second one is always 0 in our case. (Isn't it?)
-        transmission.push(this.buffer[i]);
+        // We pass 16 bits in two parts. But in our case the second one is always 0 (isn't it?)
+        // Also, we need to right-rotate the buffer because of the hardware wiring...
+        transmission.push(rotr(this.buffer[i], 1));
         transmission.push(0);
     }
     // Now, transmit all the content to the LED matrix
@@ -52,13 +54,39 @@ HeightByHeight.prototype.setBuffer = function (buffer) {
 };
 
 /**
- * Switch ON one particular LEDD 
- * @param {Array} buffer an Array of 8 integers - one per line of display.
+ * Switch ON one particular LED.
+ * The numbering starts at (0,0).
+ *
+ * Internally does a bit by bit OR with a mask.
+ * 
+ * @param {number} line The line of the LED
+ * @param {number} col The column of the LED
  */
 HeightByHeight.prototype.switchOn = function (line, col) {
-    //this.buffer = buffer;
-    // see here https://github.com/adafruit/Adafruit_Python_LED_Backpack/blob/master/Adafruit_LED_Backpack/Matrix8x8.py
-    // there is a formula to set the correct bit.
+    // Check that we are inside the 8x8 matrix
+    if (line >=0 && line <= 7 && col >=0 && col <= 7) {
+        this.buffer[line] |= (1 << col);
+    }
+    this.display();
+};
+
+
+/**
+ * Switch OFF one particular LED.
+ * The numbering starts at (0,0).
+ *
+ * Internally does a bit by bit AND with a mask.
+ * 
+ * @param {number} line The line of the LED
+ * @param {number} col The column of the LED
+ */
+HeightByHeight.prototype.switchOff = function (line, col) {
+    // Check that we are inside the 8x8 matrix
+    if (line >=0 && line <= 7 && col >=0 && col <= 7) {
+        var mask = rotl(0b11111110, col);
+        this.buffer[line] &= mask;
+    }
+    this.display();
 };
 
 HeightByHeight.prototype.d = function (val) {
@@ -72,6 +100,32 @@ HeightByHeight.prototype.f = function (val) {
     this.buffer = [val,0,0,0,0,0,0,0];
     this.display();
 };
+
+/**
+ * Utility function to do a right rotation of "shift" bits for 8 bits values.
+ * example: rotr(0b10001001) -> 0b11000100
+ * 
+ * @param  val The 8 bits value to rotate
+ * @param  shift The number of rotations
+ * @return the right rotated result
+ */
+function rotr (val, shift) {
+    return (val >> shift) | (val << (8-shift));
+}
+
+/**
+ * Utility function to do a left rotation of "shift" bits for 8 bits values.
+ * example: rotl(0b10001001) -> 0b00010011
+ * 
+ * @param  val The 8 bits value to rotate
+ * @param  shift The number of rotations
+ * @return the left rotated result
+ */
+function rotl (val, shift) {
+    return (val << shift) | (val >> (8-shift));
+}
+
+
 
 /*
 exports.connect = function ( i2c, i2cAddress ) {
